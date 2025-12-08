@@ -37,12 +37,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS: 사이드바 숨김 버튼 제거 + 섹션 박스 스타일 + 버튼 하단 고정
+# CSS: 사이드바 스타일링 + 버튼 고정
 st.markdown("""
 <style>
-    /* 사이드바 숨김 버튼 제거 */
+    /* 사이드바 숨김 버튼 완전 제거 */
+    button[kind="header"] {
+        display: none !important;
+    }
+    
     [data-testid="collapsedControl"] {
-        display: none;
+        display: none !important;
+    }
+    
+    button[data-testid="baseButton-header"] {
+        display: none !important;
     }
     
     /* 사이드바 항상 표시 */
@@ -55,28 +63,33 @@ st.markdown("""
         padding-bottom: 100px;
     }
     
-    /* 섹션 박스 스타일 */
+    /* 섹션 박스 스타일 - 흰색 박스 + 테두리 + 그림자 */
     .section-box {
-        background-color: #f0f2f6;
+        background-color: white;
         padding: 20px;
         border-radius: 10px;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     .section-title {
         font-size: 16px;
         font-weight: bold;
         margin-bottom: 15px;
-        color: #31333F;
+        color: #262730;
+        display: flex;
+        align-items: center;
     }
     
-    /* 예측 버튼을 포함한 컨테이너 고정 */
-    .stButton button[kind="primary"] {
+    /* 예측 버튼 하단 고정 */
+    div.stButton > button[kind="primary"] {
         position: fixed !important;
         bottom: 20px !important;
         width: 310px !important;
         z-index: 999 !important;
         background-color: #FF4B4B !important;
+        border: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -196,10 +209,10 @@ def load_models():
     return models
 
 # ========================================
-# 입력 UI 함수 (회색 박스 구분)
+# 입력 UI 함수 (흰색 박스 구분)
 # ========================================
 def create_sidebar_inputs():
-    """사이드바 입력 UI 생성 - 회색 박스 구분"""
+    """사이드바 입력 UI 생성 - 흰색 박스로 그룹 구분"""
     st.sidebar.title("🩺 환자 정보 입력")
     
     inputs = {}
@@ -207,7 +220,7 @@ def create_sidebar_inputs():
     # ========== 기본 정보 ==========
     st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
     st.sidebar.markdown('<div class="section-title">📋 기본 정보</div>', unsafe_allow_html=True)
-    inputs['patient_name'] = st.sidebar.text_input("환자 이름", value="", key="patient_name", label_visibility="collapsed", placeholder="환자 이름")
+    inputs['patient_name'] = st.sidebar.text_input("환자 이름", value="", key="patient_name")
     inputs['age'] = st.sidebar.number_input("나이", min_value=10, max_value=100, value=50, key="age")
     sex_option = st.sidebar.selectbox("성별", ["여성", "남성"], key="sex")
     inputs['sex'] = 1 if sex_option == "여성" else 0
