@@ -37,10 +37,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS: 사이드바 스타일링 + 버튼 고정
+# CSS: 사이드바 스타일링
 st.markdown("""
 <style>
-    /* 사이드바 숨김 버튼 완전 제거 */
+    /* 사이드바 숨김 버튼 제거 시도 */
     button[kind="header"] {
         display: none !important;
     }
@@ -49,37 +49,40 @@ st.markdown("""
         display: none !important;
     }
     
-    button[data-testid="baseButton-header"] {
-        display: none !important;
-    }
-    
     /* 사이드바 항상 표시 */
     section[data-testid="stSidebar"] {
         width: 350px !important;
     }
     
-    /* 사이드바 내부 여백 조정 */
+    /* 사이드바 배경색 */
     section[data-testid="stSidebar"] > div {
+        background-color: #f8f9fa;
         padding-bottom: 100px;
     }
     
-    /* 섹션 박스 스타일 - 흰색 박스 + 테두리 + 그림자 */
-    .section-box {
-        background-color: white;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        border: 1px solid #e0e0e0;
+    /* 섹션 제목 스타일 */
+    .section-header {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 15px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 15px;
+        margin: 20px 0 15px 0;
+        display: flex;
+        align-items: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    .section-title {
-        font-size: 16px;
-        font-weight: bold;
-        margin-bottom: 15px;
-        color: #262730;
-        display: flex;
-        align-items: center;
+    .section-header:first-of-type {
+        margin-top: 10px;
+    }
+    
+    /* 섹션 구분선 */
+    .section-divider {
+        height: 2px;
+        background: linear-gradient(90deg, #e0e0e0 0%, transparent 100%);
+        margin: 25px 0;
     }
     
     /* 예측 버튼 하단 고정 */
@@ -209,26 +212,24 @@ def load_models():
     return models
 
 # ========================================
-# 입력 UI 함수 (흰색 박스 구분)
+# 입력 UI 함수 (제목 + 구분선으로 섹션 구분)
 # ========================================
 def create_sidebar_inputs():
-    """사이드바 입력 UI 생성 - 흰색 박스로 그룹 구분"""
+    """사이드바 입력 UI 생성"""
     st.sidebar.title("🩺 환자 정보 입력")
     
     inputs = {}
     
     # ========== 기본 정보 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">📋 기본 정보</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">📋 기본 정보</div>', unsafe_allow_html=True)
     inputs['patient_name'] = st.sidebar.text_input("환자 이름", value="", key="patient_name")
     inputs['age'] = st.sidebar.number_input("나이", min_value=10, max_value=100, value=50, key="age")
     sex_option = st.sidebar.selectbox("성별", ["여성", "남성"], key="sex")
     inputs['sex'] = 1 if sex_option == "여성" else 0
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
     # ========== 어지럼증 특성 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">🌀 어지럼증 특성</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">🌀 어지럼증 특성</div>', unsafe_allow_html=True)
     
     inputs['symptoms_true_vertigo'] = float(st.sidebar.checkbox("회전성 어지럼증 (빙글빙글 도는 느낌)", key="true_vertigo"))
     inputs['symptoms_dizziness_duration_ongoing'] = float(st.sidebar.checkbox("현재 어지럼증 지속 중", key="ongoing"))
@@ -277,32 +278,29 @@ def create_sidebar_inputs():
     inputs['symptom_remote_cat_is_within_1years'] = 1.0 if remote_selected == "1년 이내" else 0.0
     inputs['symptom_remote_cat_is_over_1year'] = 1.0 if remote_selected == "1년 이상" else 0.0
     
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
     # ========== 동반 증상 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">🤢 동반 증상</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">🤢 동반 증상</div>', unsafe_allow_html=True)
     
     inputs['symptoms_nausea'] = float(st.sidebar.checkbox("오심 (메스꺼움)", key="nausea"))
     inputs['symptoms_vomiting'] = float(st.sidebar.checkbox("구토", key="vomiting"))
     inputs['symptoms_headache'] = float(st.sidebar.checkbox("두통", key="headache"))
     inputs['symptoms_black_out'] = float(st.sidebar.checkbox("실신/눈앞이 캄캄함", key="blackout"))
     
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
     # ========== 이과적 증상 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">👂 이과적 증상</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">👂 이과적 증상</div>', unsafe_allow_html=True)
     
     inputs['symptoms_hearing_impairment_combined'] = float(st.sidebar.checkbox("청력 저하", key="hearing"))
     inputs['symptoms_tinnitus'] = float(st.sidebar.checkbox("이명", key="tinnitus"))
     inputs['symptoms_ear_fullness'] = float(st.sidebar.checkbox("이충만감", key="ear_fullness"))
     
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
     # ========== 악화/완화 요인 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">⚡ 악화/완화 요인</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">⚡ 악화/완화 요인</div>', unsafe_allow_html=True)
     
     st.sidebar.markdown("**악화 요인**")
     inputs['symptoms_agg_factor_position_change'] = float(st.sidebar.checkbox("체위 변화 시 악화", key="agg_position"))
@@ -316,11 +314,10 @@ def create_sidebar_inputs():
     inputs['symptoms_rel_factor_rest'] = float(st.sidebar.checkbox("휴식 시 완화", key="rel_rest"))
     inputs['symptoms_rel_factor_eyes_closed'] = float(st.sidebar.checkbox("눈 감으면 완화", key="rel_eyes"))
     
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
     # ========== 과거력 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">📜 과거력</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">📜 과거력</div>', unsafe_allow_html=True)
     
     col1, col2 = st.sidebar.columns(2)
     with col1:
@@ -348,11 +345,10 @@ def create_sidebar_inputs():
         if h not in inputs:
             inputs[h] = 0.0
     
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     
     # ========== 신체검사 소견 ==========
-    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
-    st.sidebar.markdown('<div class="section-title">🔍 신체검사 소견</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-header">🔍 신체검사 소견</div>', unsafe_allow_html=True)
     
     st.sidebar.markdown("**안진 검사**")
     col1, col2 = st.sidebar.columns(2)
@@ -385,8 +381,6 @@ def create_sidebar_inputs():
     for e in other_etc:
         if e not in inputs:
             inputs[e] = 0.0
-    
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     return inputs
 
