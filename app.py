@@ -37,7 +37,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS: 사이드바 숨김 버튼 제거 + 예측 버튼 하단 고정
+# CSS: 사이드바 숨김 버튼 제거 + 섹션 박스 스타일 + 버튼 하단 고정
 st.markdown("""
 <style>
     /* 사이드바 숨김 버튼 제거 */
@@ -50,20 +50,33 @@ st.markdown("""
         width: 350px !important;
     }
     
-    /* 예측 버튼 컨테이너 하단 고정 */
-    .fixed-button-container {
-        position: fixed;
-        bottom: 20px;
-        width: 310px;
-        background: white;
-        padding: 15px 0;
-        z-index: 999;
-        border-top: 2px solid #f0f2f6;
+    /* 사이드바 내부 여백 조정 */
+    section[data-testid="stSidebar"] > div {
+        padding-bottom: 100px;
     }
     
-    /* 사이드바 스크롤 영역 조정 (버튼 공간 확보) */
-    .main-sidebar-content {
-        padding-bottom: 100px;
+    /* 섹션 박스 스타일 */
+    .section-box {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #31333F;
+    }
+    
+    /* 예측 버튼을 포함한 컨테이너 고정 */
+    .stButton button[kind="primary"] {
+        position: fixed !important;
+        bottom: 20px !important;
+        width: 310px !important;
+        z-index: 999 !important;
+        background-color: #FF4B4B !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -127,7 +140,6 @@ def get_google_drive_service():
     """Google Drive API 서비스 생성"""
     try:
         creds_dict = dict(st.secrets["google"])
-        # private_key의 줄바꿈 처리
         if "private_key" in creds_dict:
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         
@@ -170,10 +182,8 @@ def load_models():
     
     for name, file_id in FILE_IDS.items():
         try:
-            # 임시 파일 경로
             temp_path = os.path.join(temp_dir, f"label_{name.lower()}_model.joblib")
             
-            # 파일 다운로드
             if download_file_from_drive(service, file_id, temp_path):
                 models[name] = joblib.load(temp_path)
             else:
@@ -186,168 +196,183 @@ def load_models():
     return models
 
 # ========================================
-# 입력 UI 함수 (그룹별 Expander)
+# 입력 UI 함수 (회색 박스 구분)
 # ========================================
 def create_sidebar_inputs():
-    """사이드바 입력 UI 생성 - 그룹별 Expander"""
+    """사이드바 입력 UI 생성 - 회색 박스 구분"""
     st.sidebar.title("🩺 환자 정보 입력")
-    
-    # 스크롤 가능 영역 시작
-    st.sidebar.markdown('<div class="main-sidebar-content">', unsafe_allow_html=True)
     
     inputs = {}
     
     # ========== 기본 정보 ==========
-    with st.sidebar.expander("📋 기본 정보", expanded=True):
-        inputs['patient_name'] = st.text_input("환자 이름", value="", key="patient_name")
-        inputs['age'] = st.number_input("나이", min_value=10, max_value=100, value=50, key="age")
-        sex_option = st.selectbox("성별", ["여성", "남성"], key="sex")
-        inputs['sex'] = 1 if sex_option == "여성" else 0
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">📋 기본 정보</div>', unsafe_allow_html=True)
+    inputs['patient_name'] = st.sidebar.text_input("환자 이름", value="", key="patient_name", label_visibility="collapsed", placeholder="환자 이름")
+    inputs['age'] = st.sidebar.number_input("나이", min_value=10, max_value=100, value=50, key="age")
+    sex_option = st.sidebar.selectbox("성별", ["여성", "남성"], key="sex")
+    inputs['sex'] = 1 if sex_option == "여성" else 0
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # ========== 어지럼증 특성 ==========
-    with st.sidebar.expander("🌀 어지럼증 특성", expanded=True):
-        inputs['symptoms_true_vertigo'] = float(st.checkbox("회전성 어지럼증 (빙글빙글 도는 느낌)", key="true_vertigo"))
-        inputs['symptoms_dizziness_duration_ongoing'] = float(st.checkbox("현재 어지럼증 지속 중", key="ongoing"))
-        
-        inputs['symptom_recent'] = st.number_input(
-            "최근 어지럼증 발생일 (며칠 전)", min_value=0, max_value=180, value=1, key="recent"
-        )
-        
-        frequency_options = {
-            "1회": 1, "2-3회": 2, "4-5회": 3, "6-10회": 4, "10회 이상": 5
-        }
-        freq_selected = st.selectbox("어지럼증 발생 빈도", list(frequency_options.keys()), key="frequency")
-        inputs['symptoms_frequency'] = float(frequency_options[freq_selected])
-        
-        inputs['symptoms_recurrence'] = float(st.checkbox("재발성 어지럼증", key="recurrence"))
-        
-        # 지속 시간
-        duration_cat_options = {
-            "수 초": 1, "수 분": 2, "수 시간": 3, "수 일": 4
-        }
-        duration_selected = st.selectbox("어지럼증 지속 시간", list(duration_cat_options.keys()), key="duration")
-        inputs['symptoms_duration_minutes_cat_gen'] = float(duration_cat_options[duration_selected])
-        
-        # 지속 시간 one-hot
-        inputs['symptoms_duration_minutes_cat_gen_is_several_sec'] = 1.0 if duration_selected == "수 초" else 0.0
-        inputs['symptoms_duration_minutes_cat_gen_is_several_min'] = 1.0 if duration_selected == "수 분" else 0.0
-        inputs['symptoms_duration_minutes_cat_gen_is_several_hours'] = 1.0 if duration_selected == "수 시간" else 0.0
-        inputs['symptoms_duration_minutes_cat_gen_is_several_days'] = 1.0 if duration_selected == "수 일" else 0.0
-        
-        # 20분 기준 동일 적용
-        inputs['symptoms_duration_minutes_cat_20m'] = inputs['symptoms_duration_minutes_cat_gen']
-        inputs['symptoms_duration_minutes_cat_20m_is_several_sec'] = inputs['symptoms_duration_minutes_cat_gen_is_several_sec']
-        inputs['symptoms_duration_minutes_cat_20m_is_several_min'] = inputs['symptoms_duration_minutes_cat_gen_is_several_min']
-        inputs['symptoms_duration_minutes_cat_20m_is_several_hours'] = inputs['symptoms_duration_minutes_cat_gen_is_several_hours']
-        inputs['symptoms_duration_minutes_cat_20m_is_several_days'] = inputs['symptoms_duration_minutes_cat_gen_is_several_days']
-        
-        # 지속 시간 (분) - 대략적 값 설정
-        duration_minutes_map = {"수 초": 0.5, "수 분": 5, "수 시간": 120, "수 일": 1440}
-        inputs['symptoms_duration_minutes'] = duration_minutes_map[duration_selected]
-        
-        # 과거 발생 시점
-        remote_cat_options = {
-            "첫 발작": 0, "30일 이내": 1, "1년 이내": 2, "1년 이상": 3
-        }
-        remote_selected = st.selectbox("과거 어지럼증 발생 시점", list(remote_cat_options.keys()), key="remote")
-        inputs['symptom_remote_cat'] = float(remote_cat_options[remote_selected])
-        inputs['symptom_remote_cat_is_1st_attack'] = 1.0 if remote_selected == "첫 발작" else 0.0
-        inputs['symptom_remote_cat_is_within_30days'] = 1.0 if remote_selected == "30일 이내" else 0.0
-        inputs['symptom_remote_cat_is_within_1years'] = 1.0 if remote_selected == "1년 이내" else 0.0
-        inputs['symptom_remote_cat_is_over_1year'] = 1.0 if remote_selected == "1년 이상" else 0.0
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">🌀 어지럼증 특성</div>', unsafe_allow_html=True)
+    
+    inputs['symptoms_true_vertigo'] = float(st.sidebar.checkbox("회전성 어지럼증 (빙글빙글 도는 느낌)", key="true_vertigo"))
+    inputs['symptoms_dizziness_duration_ongoing'] = float(st.sidebar.checkbox("현재 어지럼증 지속 중", key="ongoing"))
+    
+    inputs['symptom_recent'] = st.sidebar.number_input(
+        "최근 어지럼증 발생일 (며칠 전)", min_value=0, max_value=180, value=1, key="recent"
+    )
+    
+    frequency_options = {
+        "1회": 1, "2-3회": 2, "4-5회": 3, "6-10회": 4, "10회 이상": 5
+    }
+    freq_selected = st.sidebar.selectbox("어지럼증 발생 빈도", list(frequency_options.keys()), key="frequency")
+    inputs['symptoms_frequency'] = float(frequency_options[freq_selected])
+    
+    inputs['symptoms_recurrence'] = float(st.sidebar.checkbox("재발성 어지럼증", key="recurrence"))
+    
+    # 지속 시간
+    duration_cat_options = {
+        "수 초": 1, "수 분": 2, "수 시간": 3, "수 일": 4
+    }
+    duration_selected = st.sidebar.selectbox("어지럼증 지속 시간", list(duration_cat_options.keys()), key="duration")
+    inputs['symptoms_duration_minutes_cat_gen'] = float(duration_cat_options[duration_selected])
+    
+    inputs['symptoms_duration_minutes_cat_gen_is_several_sec'] = 1.0 if duration_selected == "수 초" else 0.0
+    inputs['symptoms_duration_minutes_cat_gen_is_several_min'] = 1.0 if duration_selected == "수 분" else 0.0
+    inputs['symptoms_duration_minutes_cat_gen_is_several_hours'] = 1.0 if duration_selected == "수 시간" else 0.0
+    inputs['symptoms_duration_minutes_cat_gen_is_several_days'] = 1.0 if duration_selected == "수 일" else 0.0
+    
+    inputs['symptoms_duration_minutes_cat_20m'] = inputs['symptoms_duration_minutes_cat_gen']
+    inputs['symptoms_duration_minutes_cat_20m_is_several_sec'] = inputs['symptoms_duration_minutes_cat_gen_is_several_sec']
+    inputs['symptoms_duration_minutes_cat_20m_is_several_min'] = inputs['symptoms_duration_minutes_cat_gen_is_several_min']
+    inputs['symptoms_duration_minutes_cat_20m_is_several_hours'] = inputs['symptoms_duration_minutes_cat_gen_is_several_hours']
+    inputs['symptoms_duration_minutes_cat_20m_is_several_days'] = inputs['symptoms_duration_minutes_cat_gen_is_several_days']
+    
+    duration_minutes_map = {"수 초": 0.5, "수 분": 5, "수 시간": 120, "수 일": 1440}
+    inputs['symptoms_duration_minutes'] = duration_minutes_map[duration_selected]
+    
+    # 과거 발생 시점
+    remote_cat_options = {
+        "첫 발작": 0, "30일 이내": 1, "1년 이내": 2, "1년 이상": 3
+    }
+    remote_selected = st.sidebar.selectbox("과거 어지럼증 발생 시점", list(remote_cat_options.keys()), key="remote")
+    inputs['symptom_remote_cat'] = float(remote_cat_options[remote_selected])
+    inputs['symptom_remote_cat_is_1st_attack'] = 1.0 if remote_selected == "첫 발작" else 0.0
+    inputs['symptom_remote_cat_is_within_30days'] = 1.0 if remote_selected == "30일 이내" else 0.0
+    inputs['symptom_remote_cat_is_within_1years'] = 1.0 if remote_selected == "1년 이내" else 0.0
+    inputs['symptom_remote_cat_is_over_1year'] = 1.0 if remote_selected == "1년 이상" else 0.0
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # ========== 동반 증상 ==========
-    with st.sidebar.expander("🤢 동반 증상", expanded=False):
-        inputs['symptoms_nausea'] = float(st.checkbox("오심 (메스꺼움)", key="nausea"))
-        inputs['symptoms_vomiting'] = float(st.checkbox("구토", key="vomiting"))
-        inputs['symptoms_headache'] = float(st.checkbox("두통", key="headache"))
-        inputs['symptoms_black_out'] = float(st.checkbox("실신/눈앞이 캄캄함", key="blackout"))
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">🤢 동반 증상</div>', unsafe_allow_html=True)
+    
+    inputs['symptoms_nausea'] = float(st.sidebar.checkbox("오심 (메스꺼움)", key="nausea"))
+    inputs['symptoms_vomiting'] = float(st.sidebar.checkbox("구토", key="vomiting"))
+    inputs['symptoms_headache'] = float(st.sidebar.checkbox("두통", key="headache"))
+    inputs['symptoms_black_out'] = float(st.sidebar.checkbox("실신/눈앞이 캄캄함", key="blackout"))
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # ========== 이과적 증상 ==========
-    with st.sidebar.expander("👂 이과적 증상", expanded=False):
-        inputs['symptoms_hearing_impairment_combined'] = float(st.checkbox("청력 저하", key="hearing"))
-        inputs['symptoms_tinnitus'] = float(st.checkbox("이명", key="tinnitus"))
-        inputs['symptoms_ear_fullness'] = float(st.checkbox("이충만감", key="ear_fullness"))
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">👂 이과적 증상</div>', unsafe_allow_html=True)
+    
+    inputs['symptoms_hearing_impairment_combined'] = float(st.sidebar.checkbox("청력 저하", key="hearing"))
+    inputs['symptoms_tinnitus'] = float(st.sidebar.checkbox("이명", key="tinnitus"))
+    inputs['symptoms_ear_fullness'] = float(st.sidebar.checkbox("이충만감", key="ear_fullness"))
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # ========== 악화/완화 요인 ==========
-    with st.sidebar.expander("⚡ 악화/완화 요인", expanded=False):
-        st.markdown("**악화 요인**")
-        inputs['symptoms_agg_factor_position_change'] = float(st.checkbox("체위 변화 시 악화", key="agg_position"))
-        inputs['symptoms_agg_factor_head_rotation'] = float(st.checkbox("머리 회전 시 악화", key="agg_head"))
-        inputs['symptoms_agg_factor_eyes_moving'] = float(st.checkbox("눈 움직일 때 악화", key="agg_eyes"))
-        inputs['symptoms_agg_factor_moving'] = float(st.checkbox("움직일 때 악화", key="agg_moving"))
-        inputs['symptoms_agg_factor_no_moving'] = float(st.checkbox("가만히 있을 때 악화", key="agg_no_moving"))
-        inputs['symptoms_agg_factor_position_change_combined'] = inputs['symptoms_agg_factor_position_change']
-        
-        st.markdown("**완화 요인**")
-        inputs['symptoms_rel_factor_rest'] = float(st.checkbox("휴식 시 완화", key="rel_rest"))
-        inputs['symptoms_rel_factor_eyes_closed'] = float(st.checkbox("눈 감으면 완화", key="rel_eyes"))
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">⚡ 악화/완화 요인</div>', unsafe_allow_html=True)
+    
+    st.sidebar.markdown("**악화 요인**")
+    inputs['symptoms_agg_factor_position_change'] = float(st.sidebar.checkbox("체위 변화 시 악화", key="agg_position"))
+    inputs['symptoms_agg_factor_head_rotation'] = float(st.sidebar.checkbox("머리 회전 시 악화", key="agg_head"))
+    inputs['symptoms_agg_factor_eyes_moving'] = float(st.sidebar.checkbox("눈 움직일 때 악화", key="agg_eyes"))
+    inputs['symptoms_agg_factor_moving'] = float(st.sidebar.checkbox("움직일 때 악화", key="agg_moving"))
+    inputs['symptoms_agg_factor_no_moving'] = float(st.sidebar.checkbox("가만히 있을 때 악화", key="agg_no_moving"))
+    inputs['symptoms_agg_factor_position_change_combined'] = inputs['symptoms_agg_factor_position_change']
+    
+    st.sidebar.markdown("**완화 요인**")
+    inputs['symptoms_rel_factor_rest'] = float(st.sidebar.checkbox("휴식 시 완화", key="rel_rest"))
+    inputs['symptoms_rel_factor_eyes_closed'] = float(st.sidebar.checkbox("눈 감으면 완화", key="rel_eyes"))
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # ========== 과거력 ==========
-    with st.sidebar.expander("📜 과거력", expanded=False):
-        col1, col2 = st.columns(2)
-        with col1:
-            inputs['history_dm'] = float(st.checkbox("당뇨병", key="hist_dm"))
-            inputs['history_htn'] = float(st.checkbox("고혈압", key="hist_htn"))
-            inputs['history_ear_disease'] = float(st.checkbox("귀 질환", key="hist_ear"))
-            inputs['history_brain_disease'] = float(st.checkbox("뇌질환", key="hist_brain"))
-            inputs['history_thyroid_disease'] = float(st.checkbox("갑상선질환", key="hist_thyroid"))
-            inputs['history_psychiatric'] = float(st.checkbox("정신과질환", key="hist_psych"))
-        
-        with col2:
-            inputs['history_coronary_disease'] = float(st.checkbox("관상동맥질환", key="hist_coronary"))
-            inputs['history_trauma'] = float(st.checkbox("외상력", key="hist_trauma"))
-            inputs['history_entop'] = float(st.checkbox("이비인후과 수술력", key="hist_entop"))
-            inputs['history_metabolic_disease'] = float(st.checkbox("대사질환", key="hist_metabolic"))
-            inputs['history_autoimmune_disease'] = float(st.checkbox("자가면역질환", key="hist_autoimmune"))
-            inputs['history_respiratory_disease'] = float(st.checkbox("호흡기질환", key="hist_respiratory"))
-        
-        # 기타 과거력 (기본값 0)
-        other_history = [
-            'history_pul_tbc', 'history_asthma', 'history_kidney', 'history_neckop',
-            'history_stomach', 'history_bph', 'history_gynecologic', 'history_eye_disease',
-            'history_pci', 'history_abdominalop', 'history_orthopedicop', 'history_ra'
-        ]
-        for h in other_history:
-            if h not in inputs:
-                inputs[h] = 0.0
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">📜 과거력</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        inputs['history_dm'] = float(st.checkbox("당뇨병", key="hist_dm"))
+        inputs['history_htn'] = float(st.checkbox("고혈압", key="hist_htn"))
+        inputs['history_ear_disease'] = float(st.checkbox("귀 질환", key="hist_ear"))
+        inputs['history_brain_disease'] = float(st.checkbox("뇌질환", key="hist_brain"))
+        inputs['history_thyroid_disease'] = float(st.checkbox("갑상선질환", key="hist_thyroid"))
+        inputs['history_psychiatric'] = float(st.checkbox("정신과질환", key="hist_psych"))
+    
+    with col2:
+        inputs['history_coronary_disease'] = float(st.checkbox("관상동맥질환", key="hist_coronary"))
+        inputs['history_trauma'] = float(st.checkbox("외상력", key="hist_trauma"))
+        inputs['history_entop'] = float(st.checkbox("이비인후과 수술력", key="hist_entop"))
+        inputs['history_metabolic_disease'] = float(st.checkbox("대사질환", key="hist_metabolic"))
+        inputs['history_autoimmune_disease'] = float(st.checkbox("자가면역질환", key="hist_autoimmune"))
+        inputs['history_respiratory_disease'] = float(st.checkbox("호흡기질환", key="hist_respiratory"))
+    
+    other_history = [
+        'history_pul_tbc', 'history_asthma', 'history_kidney', 'history_neckop',
+        'history_stomach', 'history_bph', 'history_gynecologic', 'history_eye_disease',
+        'history_pci', 'history_abdominalop', 'history_orthopedicop', 'history_ra'
+    ]
+    for h in other_history:
+        if h not in inputs:
+            inputs[h] = 0.0
+    
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # ========== 신체검사 소견 ==========
-    with st.sidebar.expander("🔍 신체검사 소견", expanded=False):
-        st.markdown("**안진 검사**")
-        col1, col2 = st.columns(2)
-        with col1:
-            inputs['etc_sn_right'] = float(st.checkbox("자발안진 (우)", key="sn_r"))
-            inputs['etc_gaze_right'] = float(st.checkbox("주시안진 (우)", key="gaze_r"))
-            inputs['etc_dht_right'] = float(st.checkbox("Dix-Hallpike (우)", key="dht_r"))
-            inputs['etc_rht_right'] = float(st.checkbox("Roll test (우)", key="rht_r"))
-        with col2:
-            inputs['etc_sn_left'] = float(st.checkbox("자발안진 (좌)", key="sn_l"))
-            inputs['etc_gaze_left'] = float(st.checkbox("주시안진 (좌)", key="gaze_l"))
-            inputs['etc_dht_left'] = float(st.checkbox("Dix-Hallpike (좌)", key="dht_l"))
-            inputs['etc_rht_left'] = float(st.checkbox("Roll test (좌)", key="rht_l"))
-        
-        st.markdown("**기타 검사**")
-        col1, col2 = st.columns(2)
-        with col1:
-            inputs['etc_hit_right'] = float(st.checkbox("HIT (우)", key="hit_r"))
-            inputs['etc_hsn_right'] = float(st.checkbox("HSN (우)", key="hsn_r"))
-            inputs['etc_htt_right'] = float(st.checkbox("HTT (우)", key="htt_r"))
-        with col2:
-            inputs['etc_hit_left'] = float(st.checkbox("HIT (좌)", key="hit_l"))
-            inputs['etc_hsn_left'] = float(st.checkbox("HSN (좌)", key="hsn_l"))
-            inputs['etc_htt_left'] = float(st.checkbox("HTT (좌)", key="htt_l"))
-        
-        # 기타 검사 소견 (기본값 0)
-        other_etc = [
-            'etc_gn_right', 'etc_gn_left', 'etc_skew_deviation_right', 'etc_skew_deviation_left',
-            'etc_weber_right', 'etc_weber_left'
-        ]
-        for e in other_etc:
-            if e not in inputs:
-                inputs[e] = 0.0
+    st.sidebar.markdown('<div class="section-box">', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="section-title">🔍 신체검사 소견</div>', unsafe_allow_html=True)
     
-    # 스크롤 가능 영역 종료
+    st.sidebar.markdown("**안진 검사**")
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        inputs['etc_sn_right'] = float(st.checkbox("자발안진 (우)", key="sn_r"))
+        inputs['etc_gaze_right'] = float(st.checkbox("주시안진 (우)", key="gaze_r"))
+        inputs['etc_dht_right'] = float(st.checkbox("Dix-Hallpike (우)", key="dht_r"))
+        inputs['etc_rht_right'] = float(st.checkbox("Roll test (우)", key="rht_r"))
+    with col2:
+        inputs['etc_sn_left'] = float(st.checkbox("자발안진 (좌)", key="sn_l"))
+        inputs['etc_gaze_left'] = float(st.checkbox("주시안진 (좌)", key="gaze_l"))
+        inputs['etc_dht_left'] = float(st.checkbox("Dix-Hallpike (좌)", key="dht_l"))
+        inputs['etc_rht_left'] = float(st.checkbox("Roll test (좌)", key="rht_l"))
+    
+    st.sidebar.markdown("**기타 검사**")
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        inputs['etc_hit_right'] = float(st.checkbox("HIT (우)", key="hit_r"))
+        inputs['etc_hsn_right'] = float(st.checkbox("HSN (우)", key="hsn_r"))
+        inputs['etc_htt_right'] = float(st.checkbox("HTT (우)", key="htt_r"))
+    with col2:
+        inputs['etc_hit_left'] = float(st.checkbox("HIT (좌)", key="hit_l"))
+        inputs['etc_hsn_left'] = float(st.checkbox("HSN (좌)", key="hsn_l"))
+        inputs['etc_htt_left'] = float(st.checkbox("HTT (좌)", key="htt_l"))
+    
+    other_etc = [
+        'etc_gn_right', 'etc_gn_left', 'etc_skew_deviation_right', 'etc_skew_deviation_left',
+        'etc_weber_right', 'etc_weber_left'
+    ]
+    for e in other_etc:
+        if e not in inputs:
+            inputs[e] = 0.0
+    
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     return inputs
@@ -361,7 +386,7 @@ def predict_all_models(models, input_df):
     
     for name, model in models.items():
         try:
-            prob = model.predict_proba(input_df)[0][1]  # 양성 클래스 확률
+            prob = model.predict_proba(input_df)[0][1]
             probabilities[name] = prob
         except Exception as e:
             st.error(f"{name} 모델 예측 오류: {e}")
@@ -381,14 +406,12 @@ def get_top_prediction(probabilities):
 def generate_shap_plot(model, input_df, disease_name):
     """개별 환자에 대한 SHAP waterfall plot + bar plot 생성"""
     try:
-        # 폰트 설정
         plt.rcParams['font.family'] = 'DejaVu Sans'
         plt.rcParams['axes.unicode_minus'] = False
         
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(input_df)
         
-        # shap_values 처리
         if isinstance(shap_values, list):
             sv = shap_values[1][0]
             base_value = explainer.expected_value[1]
@@ -396,7 +419,6 @@ def generate_shap_plot(model, input_df, disease_name):
             sv = shap_values[0]
             base_value = explainer.expected_value
         
-        # 변수명은 컬럼명 그대로 사용 (영문)
         feature_names = list(input_df.columns)
         
         # Top 10 features for waterfall
@@ -405,10 +427,9 @@ def generate_shap_plot(model, input_df, disease_name):
         top_values = sv[sorted_idx]
         top_data = input_df.values[0][sorted_idx]
         
-        # 최종 예측값
         f_x = base_value + np.sum(sv)
         
-        # ===== 왼쪽: Waterfall 스타일 (직접 구현) =====
+        # Waterfall plot
         fig_waterfall, ax = plt.subplots(figsize=(7, 5))
         
         y_pos = range(len(top_features))
@@ -417,7 +438,6 @@ def generate_shap_plot(model, input_df, disease_name):
         bars = ax.barh(y_pos, top_values, color=colors, height=0.6)
         ax.set_yticks(y_pos)
         
-        # y축 라벨: "값 = 변수명" 형식
         y_labels = []
         for i in range(len(top_features)):
             val = top_data[i]
@@ -433,14 +453,12 @@ def generate_shap_plot(model, input_df, disease_name):
         ax.set_xlabel('SHAP value', fontsize=9)
         ax.axvline(x=0, color='black', linewidth=0.5)
         
-        # 막대 안에 값 표시 (마이너스 기호 직접 처리)
         for bar, val in zip(bars, top_values):
             width = bar.get_width()
-            # 부호 직접 표시
             if val >= 0:
                 label = f"+{val:.2f}"
             else:
-                label = f"{val:.2f}"  # 파이썬 기본 마이너스 사용
+                label = f"{val:.2f}"
             
             if abs(width) > 0.5:
                 x_pos = width / 2
@@ -454,12 +472,10 @@ def generate_shap_plot(model, input_df, disease_name):
             ax.text(x_pos, bar.get_y() + bar.get_height()/2, 
                    label, ha=ha, va='center', fontsize=8, color=color, fontweight='bold')
         
-        # 타이틀에 f(x) 값 표시
         ax.set_title(f'f(x) = {f_x:.3f}', fontsize=10)
-        
         plt.tight_layout()
         
-        # ===== 오른쪽: Bar plot (Top 20) =====
+        # Bar plot (Top 20)
         sorted_idx_20 = np.argsort(np.abs(sv))[::-1][:20]
         top_features_20 = [feature_names[i] for i in sorted_idx_20]
         abs_values_20 = np.abs(sv[sorted_idx_20])
@@ -498,30 +514,25 @@ def main():
     # 사이드바 입력
     inputs = create_sidebar_inputs()
     
-    # DataFrame 생성 (feature 순서 맞추기)
+    # DataFrame 생성
     input_data = {feat: inputs.get(feat, np.nan) for feat in INPUT_FEATURES}
     input_df = pd.DataFrame([input_data])
     
-    # 예측 버튼을 하단 고정 (HTML로 렌더링)
-    st.sidebar.markdown('<div class="fixed-button-container">', unsafe_allow_html=True)
+    # 예측 버튼 (하단 고정)
     predict_button = st.sidebar.button("🔮 예측 실행", type="primary", use_container_width=True, key="predict_btn")
-    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
-    # 예측 실행
     if predict_button:
         
         with st.spinner("예측 중..."):
-            # 예측 실행
             probabilities = predict_all_models(models, input_df)
             top_disease, top_prob = get_top_prediction(probabilities)
         
-        # ---- 결과 표시 ----
+        # 결과 표시
         st.header("📊 예측 결과")
 
         if inputs['patient_name']:
             st.markdown(f"**환자명: {inputs['patient_name']}**")
         
-        # 최상위 예측
         col1, col2 = st.columns([2, 1])
         
         with col1:
@@ -530,7 +541,6 @@ def main():
         
         with col2:
             st.markdown("### 각 질환별 확률")
-            # 확률 순으로 정렬
             sorted_probs = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
             for disease, prob in sorted_probs:
                 bar_color = "🟢" if disease == top_disease else "⚪"
@@ -593,9 +603,7 @@ def main():
                         절대값을 보여줍니다.
                         """)
         
-        # 입력값 요약
         with st.expander("📋 입력된 환자 정보 요약"):
-            # 주요 입력값만 표시
             summary_data = {
                 "환자 이름": inputs['patient_name'] if inputs['patient_name'] else "(미입력)",
                 "나이": inputs['age'],
@@ -611,7 +619,6 @@ def main():
     else:
         st.info("👈 왼쪽 사이드바에서 환자 정보를 입력하고 '예측 실행' 버튼을 눌러주세요.")
         
-        # 사용 안내
         with st.expander("ℹ️ 사용 안내"):
             st.markdown("""
             ### 시스템 설명
